@@ -16,40 +16,45 @@
  * specific language governing permissions and limitations      *
  * under the License.                                           *
  ****************************************************************/
+
 package org.apache.james.jmap.model;
 
-import org.apache.james.jmap.json.InvocationResponseSerializer;
-import org.apache.james.jmap.methods.Method;
+import java.util.Collections;
+import java.util.List;
 
+import org.apache.james.jmap.json.LegacyAwareProtocolResponseSerializer;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.base.Preconditions;
 
-@JsonSerialize(using = InvocationResponseSerializer.class)
-public class InvocationResponse {
+@JsonSerialize(using = LegacyAwareProtocolResponseSerializer.class)
+public class ProtocolResponse {
+    private static final String PLACEHOLDER_SESSION_STATE = "";
 
-    private final Method.Response.Name name;
-    private final ObjectNode results;
-    private final MethodCallId methodCallId;
-
-    public InvocationResponse(Method.Response.Name name, ObjectNode results, MethodCallId methodCallId) {
-        Preconditions.checkNotNull(name, "method is mandatory");
-        Preconditions.checkNotNull(results, "results is mandatory");
-        Preconditions.checkNotNull(methodCallId,  "methodCallId is mandatory");
-        this.name = name;
-        this.results = results;
-        this.methodCallId = methodCallId;
+    public static ProtocolResponse create(List<InvocationResponse> methodResponses, boolean legacyRequest) {
+        return new ProtocolResponse(methodResponses, PLACEHOLDER_SESSION_STATE, legacyRequest);
     }
 
-    public Method.Response.Name getResponseName() {
-        return name;
+    private final List<InvocationResponse> methodResponses;
+    private final String sessionState;
+    private final boolean legacyRequest;
+
+    private ProtocolResponse(List<InvocationResponse> methodResponses, String sessionState, boolean legacyRequest) {
+        this.methodResponses = Collections.unmodifiableList(methodResponses);
+        this.sessionState = sessionState;
+        this.legacyRequest = legacyRequest;
     }
 
-    public ObjectNode getResults() {
-        return results;
+    public List<InvocationResponse> getMethodResponses() {
+        return methodResponses;
     }
 
-    public MethodCallId getMethodCallId() {
-        return methodCallId;
+    public String getSessionState() {
+        return sessionState;
+    }
+
+    @JsonIgnore
+    public boolean isLegacyRequest() {
+        return legacyRequest;
     }
 }

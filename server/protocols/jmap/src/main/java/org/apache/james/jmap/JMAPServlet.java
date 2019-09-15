@@ -36,6 +36,7 @@ import org.apache.james.jmap.methods.RequestHandler;
 import org.apache.james.jmap.model.AuthenticatedRequest;
 import org.apache.james.jmap.model.InvocationResponse;
 import org.apache.james.jmap.model.ProtocolRequest;
+import org.apache.james.jmap.model.ProtocolResponse;
 import org.apache.james.metrics.api.MetricFactory;
 import org.apache.james.metrics.api.TimeMetric;
 import org.slf4j.Logger;
@@ -69,16 +70,17 @@ public class JMAPServlet extends HttpServlet {
         try {
             ProtocolRequest request = extractProtocolRequest(req);
 
-            List<Object[]> responses =
+            List<InvocationResponse> methodResponses =
                 request.getMethodCalls()
                     .stream()
                     .map(x -> AuthenticatedRequest.decorate(x, req))
                     .flatMap(this::handle)
-                    .map(InvocationResponse::asProtocolSpecification)
                     .collect(Collectors.toList());
 
+            ProtocolResponse response = ProtocolResponse.create(methodResponses, request.isLegacyRequest());
+
             resp.setContentType(JSON_CONTENT_TYPE);
-            sendResponses(resp, responses);
+            sendResponse(resp, response);
         } catch (IOException | IllegalStateException e) {
             LOGGER.warn("Error handling request", e);
             resp.setStatus(SC_BAD_REQUEST);
@@ -90,12 +92,12 @@ public class JMAPServlet extends HttpServlet {
         }
     }
 
-    private void sendResponses(HttpServletResponse response, List<Object[]> responses) throws IOException {
+    private void sendResponse(HttpServletResponse resp, ProtocolResponse response) throws IOException {
         try {
-            objectMapper.writeValue(response.getOutputStream(), responses);
+            objectMapper.writeValue(resp.getOutputStream(), response);
         } catch (ClosedChannelException e) {
             LOGGER.info("Error sending response", e);
-            response.setStatus(SC_BAD_REQUEST);
+            resp.setStatus(SC_BAD_REQUEST);
         }
     }
 

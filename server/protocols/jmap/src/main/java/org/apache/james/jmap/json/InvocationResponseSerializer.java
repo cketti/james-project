@@ -17,33 +17,24 @@
  * under the License.                                           *
  ****************************************************************/
 
-package org.apache.james.jmap.model;
+package org.apache.james.jmap.json;
 
-import org.apache.james.jmap.methods.Method;
-import org.junit.Test;
+import java.io.IOException;
 
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.james.jmap.model.InvocationResponse;
 
-public class InvocationResponseTest {
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.SerializerProvider;
 
-    @Test(expected = NullPointerException.class)
-    public void newInstanceShouldThrowWhenMethodIsNull() {
-        new InvocationResponse(null, new ObjectNode(JsonNodeFactory.instance), MethodCallId.of("id"));
-    }
+public class InvocationResponseSerializer extends JsonSerializer<InvocationResponse> {
 
-    @Test(expected = IllegalArgumentException.class)
-    public void newInstanceShouldThrowWhenMethodIsEmpty() {
-        new InvocationResponse(Method.Response.name(""), new ObjectNode(JsonNodeFactory.instance), MethodCallId.of("id"));
-    }
-
-    @Test(expected = NullPointerException.class)
-    public void newInstanceShouldThrowWhenResultsIsNull() {
-        new InvocationResponse(Method.Response.name("method"), null, MethodCallId.of("id"));
-    }
-
-    @Test(expected = NullPointerException.class)
-    public void newInstanceShouldThrowWhenMethodCallIdIsNull() {
-        new InvocationResponse(Method.Response.name("method"), new ObjectNode(new JsonNodeFactory(false)).putObject("{}"), null);
+    @Override
+    public void serialize(InvocationResponse invocation, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
+        jsonGenerator.writeStartArray();
+        jsonGenerator.writeObject(invocation.getResponseName());
+        jsonGenerator.writeObject(invocation.getResults());
+        jsonGenerator.writeObject(invocation.getMethodCallId());
+        jsonGenerator.writeEndArray();
     }
 }
