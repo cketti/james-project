@@ -22,7 +22,6 @@ import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
 
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -35,16 +34,14 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.james.jmap.methods.RequestHandler;
 import org.apache.james.jmap.model.AuthenticatedRequest;
-import org.apache.james.jmap.model.InvocationRequest;
 import org.apache.james.jmap.model.InvocationResponse;
+import org.apache.james.jmap.model.ProtocolRequest;
 import org.apache.james.metrics.api.MetricFactory;
 import org.apache.james.metrics.api.TimeMetric;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser.Feature;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -70,9 +67,11 @@ public class JMAPServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException {
         TimeMetric timeMetric = metricFactory.timer("JMAP-request");
         try {
+            ProtocolRequest request = extractProtocolRequest(req);
+
             List<Object[]> responses =
-                requestAsJsonStream(req)
-                    .map(InvocationRequest::deserialize)
+                request.getMethodCalls()
+                    .stream()
                     .map(x -> AuthenticatedRequest.decorate(x, req))
                     .flatMap(this::handle)
                     .map(InvocationResponse::asProtocolSpecification)
@@ -80,7 +79,7 @@ public class JMAPServlet extends HttpServlet {
 
             resp.setContentType(JSON_CONTENT_TYPE);
             sendResponses(resp, responses);
-        } catch (IOException e) {
+        } catch (IOException | IllegalStateException e) {
             LOGGER.warn("Error handling request", e);
             resp.setStatus(SC_BAD_REQUEST);
         } catch (Exception e) {
@@ -108,8 +107,8 @@ public class JMAPServlet extends HttpServlet {
         }
     }
 
-    private Stream<JsonNode[]> requestAsJsonStream(HttpServletRequest req) throws IOException, JsonParseException, JsonMappingException {
-        return Arrays.stream(
-                objectMapper.readValue(req.getInputStream(), JsonNode[][].class));
+    private ProtocolRequest extractProtocolRequest(HttpServletRequest req) throws IOException {
+        JsonNode rootNode = objectMapper.readTree(req.getInputStream());
+        return ProtocolRequest.deserialize(rootNode);
     }
 }
